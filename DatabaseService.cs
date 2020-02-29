@@ -1,3 +1,4 @@
+using System;
 using SuncoastRecords.Models;
 using System.Collections.Generic;
 using System.Linq;
@@ -24,6 +25,30 @@ namespace SuncoastRecords
       var suncoastDb = new DatabaseContext();
 
       suncoastDb.Bands.Add(bandToAdd);
+      suncoastDb.SaveChanges();
+    }
+
+    public void AddMusician(string musicianName, DateTime dateOfBirth)
+    {
+      var musicianToAdd = new Musician()
+      {
+        Name = musicianName,
+        DateOfBirth = dateOfBirth
+      };
+
+      var suncoastDb = new DatabaseContext();
+
+      suncoastDb.Musicians.Add(musicianToAdd);
+      suncoastDb.SaveChanges();
+    }
+
+    public void AddMusiciansToBand(List<BandMusician> listOfBandMusicians)
+    {
+      var suncoastDb = new DatabaseContext();
+
+      foreach (var musician in listOfBandMusicians)
+        suncoastDb.BandMusicians.Add(musician);
+
       suncoastDb.SaveChanges();
     }
 

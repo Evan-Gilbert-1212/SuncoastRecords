@@ -17,11 +17,16 @@ namespace SuncoastRecords
           .Add("Drop A Band", () => DropBand())
           .Add("Re-Sign A Band", () => ResignBand())
           .Add("Add An Album", () => CreateAlbum())
+          .Add("Add A Musician", () => AddMusician())
+          .Add("Add Musicians To A Band", () => AddMusiciansToBand())
           .Add("View A Bands Album List", () => ViewBandsAlbums())
           .Add("View All Albums On Label", () => ViewAllAlbums())
           .Add("View Songs On An Album", () => ViewAlbumsSongs())
           .Add("View Signed Bands", () => ViewBands(true, true))
           .Add("View Unsigned Bands", () => ViewBands(false, true))
+          .Add("View Musician List", () => ViewMusicians(true))
+          .Add("View All Albums In A Genre", () => ViewAlbumsInGenre())
+          .Add("View Musicians In A Band", () => ViewMusiciansInBand())
           .Add("Close", ConsoleMenu.Close)
           .Configure(config =>
           {
@@ -225,6 +230,76 @@ namespace SuncoastRecords
       Thread.Sleep(3000);
     }
 
+    static void AddMusician()
+    {
+      Console.WriteLine("What is the name of the musician you want to add?");
+      var musicianName = Console.ReadLine();
+
+      Console.WriteLine("What is the musicians date of birth?");
+      var strDateOfBirth = Console.ReadLine();
+      DateTime dateOfBirth;
+
+      while (!DateTime.TryParse(strDateOfBirth, out dateOfBirth))
+      {
+        Console.WriteLine("Please enter a valid date.");
+
+        strDateOfBirth = Console.ReadLine();
+      }
+
+      var suncoastDs = new DatabaseService();
+
+      suncoastDs.AddMusician(musicianName, dateOfBirth);
+
+      Console.WriteLine("New musician added successfully!");
+      Console.WriteLine();
+
+      Thread.Sleep(3000);
+    }
+
+    static void AddMusiciansToBand()
+    {
+      ViewAllBands();
+
+      Console.WriteLine("What band would you like to add musicians to? Please enter the Band ID.");
+      var bandID = Int32.Parse(Console.ReadLine());
+
+      ViewMusicians(false);
+
+      var addMusician = true;
+
+      var suncoastDs = new DatabaseService();
+
+      var listOfBandMusicians = new List<BandMusician>();
+
+      while (addMusician)
+      {
+        Console.WriteLine("What musician would you like to add to the band? Please enter the Musician ID.");
+        var musicianID = Int32.Parse(Console.ReadLine());
+
+        var bandMusician = new BandMusician()
+        {
+          BandID = bandID,
+          MusicianID = musicianID
+        };
+
+        listOfBandMusicians.Add(bandMusician);
+
+        Console.WriteLine("Would you like to add another musician to the band? (YES) or (NO).");
+
+        var userInput = Console.ReadLine().ToLower();
+
+        if (userInput == "no")
+          addMusician = false;
+      }
+
+      suncoastDs.AddMusiciansToBand(listOfBandMusicians);
+
+      Console.WriteLine("New musician added successfully!");
+      Console.WriteLine();
+
+      Thread.Sleep(3000);
+    }
+
     static void ViewBandsAlbums()
     {
       //View all albums for a band - ViewBandsAlbums(Band bandToView)
@@ -349,6 +424,45 @@ namespace SuncoastRecords
       Console.ReadLine();
     }
 
+    static void ViewAlbumsInGenre()
+    {
+      //View an albums songs - ViewAlbumsSongs(Album albumToView)
+      Console.WriteLine("What genre would you like to view albums for?");
+      var genreToDisplay = Console.ReadLine();
+
+      var suncoastDb = new DatabaseContext();
+
+      Console.WriteLine($"Current albums with songs in the genre requested:");
+      Console.WriteLine("+-------------------------------------------------+");
+      Console.WriteLine("| Album Name             | Song                   |");
+      Console.WriteLine("+-------------------------------------------------+");
+
+      var albumsToDisplay = suncoastDb.Albums
+                                      .Include(album => album.Songs)
+                                      .ThenInclude(song => song.SongGenres);
+
+      foreach (var album in albumsToDisplay)
+      {
+        foreach (var song in album.Songs)
+        {
+          foreach (var genre in song.SongGenres.Where(genre => genre.Genre == genreToDisplay))
+          {
+            var formatAlbumName = String.Format("{0,-22}", album.Title);
+
+            var formatSongName = String.Format("{0,-22}", song.Title);
+
+            Console.WriteLine($"| {formatAlbumName} | {formatSongName} |");
+          }
+        }
+      }
+
+      Console.WriteLine("+-------------------------------------------------+");
+      Console.WriteLine();
+
+      Console.WriteLine("Press (ENTER) to return to the main menu.");
+      Console.ReadLine();
+    }
+
     static void ViewBands(bool isSigned, bool pause)
     {
       var suncoastDb = new DatabaseContext();
@@ -382,6 +496,72 @@ namespace SuncoastRecords
         Console.ReadLine();
       }
     }
+
+    static void ViewMusicians(bool pause)
+    {
+      var suncoastDb = new DatabaseContext();
+
+      Console.WriteLine("Musicians in the system:");
+      Console.WriteLine("+-------------------------------------------------------------+");
+      Console.WriteLine("| Musician ID | Name                  | Date Of Birth         |");
+      Console.WriteLine("+-------------------------------------------------------------+");
+
+      foreach (var musician in suncoastDb.Musicians)
+      {
+        var formatMusicianID = String.Format("{0,-11}", musician.ID);
+        var formatMusicianName = String.Format("{0,-21}", musician.Name);
+        var formatDateOfBirth = String.Format("{0,-21}", musician.DateOfBirth);
+
+        Console.WriteLine($"| {formatMusicianID} | {formatMusicianName} | {formatDateOfBirth} |");
+      }
+
+      Console.WriteLine("+-------------------------------------------------------------+");
+      Console.WriteLine();
+
+      if (pause)
+      {
+        Console.WriteLine("Press (ENTER) to return to the main menu.");
+        Console.ReadLine();
+      }
+    }
+
+    static void ViewMusiciansInBand()
+    {
+      var suncoastDb = new DatabaseContext();
+
+      ViewAllBands();
+
+      Console.WriteLine("What band would you like to view the musicians for? Please enter the Band ID.");
+      var bandIDToDisplay = Int32.Parse(Console.ReadLine());
+
+      var bandName = suncoastDb.Bands.First(band => band.ID == bandIDToDisplay).Name;
+
+      Console.WriteLine($"Musicians in {bandName}:");
+      Console.WriteLine("+-------------------------------------------------------------+");
+      Console.WriteLine("| Musician ID | Name                  | Date Of Birth         |");
+      Console.WriteLine("+-------------------------------------------------------------+");
+
+      var musiciansToDisplay = suncoastDb.Musicians.Include(musician => musician.BandMusicians);
+
+      foreach (var musician in musiciansToDisplay)
+      {
+        foreach (var bandMusician in musician.BandMusicians.Where(bm => bm.BandID == bandIDToDisplay))
+        {
+          var formatMusicianID = String.Format("{0,-11}", musician.ID);
+          var formatMusicianName = String.Format("{0,-21}", musician.Name);
+          var formatDateOfBirth = String.Format("{0,-21}", musician.DateOfBirth);
+
+          Console.WriteLine($"| {formatMusicianID} | {formatMusicianName} | {formatDateOfBirth} |");
+        }
+      }
+
+      Console.WriteLine("+-------------------------------------------------------------+");
+      Console.WriteLine();
+
+      Console.WriteLine("Press (ENTER) to return to the main menu.");
+      Console.ReadLine();
+    }
+
 
     static void ViewAllBands()
     {
